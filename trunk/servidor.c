@@ -13,79 +13,79 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
-
+/*#include <unistd.h>*/
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
 #define	SOCKET	int
 #define INVALID_SOCKET  ((SOCKET)~0)
+#define MAX_PACKET 50
+#define PORTA_SRV 2000					// porta TCP do servidor
+#define SALA_CHAT_MAX_USERS 40			// qtd de usuarios maximo na sala de chat
+#define MSG_MAX_SIZE 50
 
-
-#define MAX_PACKET 1250
-#define PORTA_SRV 2023 // porta TCP do servidor
-
-enum erros {WSTARTUP, ABRESOCK, BIND, ACCEPT, LISTEN,RECEIVE}; 
+enum erros {ABRESOCK, BIND, ACCEPT, LISTEN, RECEIVE}; 
 
 void TrataErro(SOCKET, int);
 
 int main(int argc, char* argv[])
 {
-    int ClienteSocket;
-    int ServidorSocket = 0;
+    int sockCliente;
+    int sockServidor = 0;
 
-    struct sockaddr_in ServidorEndereco;
-    struct sockaddr_in ClienteEndereco;
+    struct sockaddr_in addrServidor;
+    struct sockaddr_in addrCliente;
     
-    int ServidorEnderecoTamanho = sizeof(ServidorEndereco);
-    socklen_t* ClienteEnderecoTamanho = (socklen_t*)sizeof(ClienteEndereco);
+    int addrServidorTamanho = sizeof(addrServidor);
+    socklen_t addrClienteTamanho = sizeof(addrCliente);
     
-    char recvbuf[MAX_PACKET];
+    char recvbuf[MSG_MAX_SIZE];
 	int result;
 
     // Cria o socket na familia AF_INET (Internet) e do tipo TCP (SOCK_STREAM)
-    ServidorSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (ServidorSocket == INVALID_SOCKET)
+    sockServidor = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockServidor == INVALID_SOCKET)
     {
-        TrataErro(ServidorSocket, ABRESOCK);
+        TrataErro(sockServidor, ABRESOCK);
     }
 
     // Define domínio, IP e porta a receber dados
-    ServidorEndereco.sin_family = AF_INET;
-    ServidorEndereco.sin_addr.s_addr = htonl(INADDR_ANY); // recebe de qualquer IP
-    ServidorEndereco.sin_port = htons(PORTA_SRV);
+    addrServidor.sin_family = AF_INET;
+    addrServidor.sin_addr.s_addr = htonl(INADDR_ANY); // recebe de qualquer IP
+    addrServidor.sin_port = htons(PORTA_SRV);
 
     // Associa socket com estrutura addr_serv
-    result = bind(ServidorSocket, (struct sockaddr *)&ServidorEndereco, ServidorEnderecoTamanho);
+    result = bind(sockServidor, (struct sockaddr *)&addrServidor, addrServidorTamanho);
     if (result != 0)
     {
-        TrataErro(ServidorSocket, BIND);
+        TrataErro(sockServidor, BIND);
     }
 
     // Coloca socket em estado de escuta para as conexoes na porta especificada permite ateh 8 conexoes simultaneas
-    result = listen(ServidorSocket, 8);
+    result = listen(sockServidor, SALA_CHAT_MAX_USERS);
     if (result != 0)
     {
-        TrataErro(ServidorSocket, LISTEN);
+        TrataErro(sockServidor, LISTEN);
     }
 
     // permite conexoes entrantes utilizarem o socket
-    ClienteSocket = accept(ServidorSocket, (struct sockaddr *)&ClienteEndereco, ClienteEnderecoTamanho);
+    sockCliente = accept(sockServidor, (struct sockaddr *)&addrCliente, &addrClienteTamanho);
     //extern int accept (int __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __addr_len);
-    if (ClienteSocket < 0)
+    if (sockCliente < 0)
     {
-        TrataErro(ServidorSocket, ACCEPT);
+        TrataErro(sockServidor, ACCEPT);
     }
 
     // fica esperando chegar mensagem
     while(1)
     {
-		result = recv(ClienteSocket, recvbuf, MAX_PACKET, 0);
+		result = recv(sockCliente, recvbuf, MSG_MAX_SIZE, 0);
         if (result < 0)
         {
-            close(ClienteSocket);
-            TrataErro(ServidorSocket, RECEIVE);
+            close(sockCliente);
+            TrataErro(sockServidor, RECEIVE);
         }
 
         // mostra na tela
@@ -103,8 +103,8 @@ int main(int argc, char* argv[])
     // FIM DO PROGRAMA
     printf("Fim da conexao\n");
     
-    close(ServidorSocket);
-    close(ClienteSocket);
+    close(sockServidor);
+    close(sockCliente);
     
     exit(1);
 }
@@ -115,9 +115,6 @@ void TrataErro(SOCKET socket, int tipoerro)
 
 	switch (tipoerro)
 	{
-		case WSTARTUP:
-			strcpy(tipo, "Windows Startup");
-			break;
 		case ABRESOCK:
 			strcpy(tipo, "Open Socket");
 			break;
@@ -138,7 +135,7 @@ void TrataErro(SOCKET socket, int tipoerro)
 			break;
 	}
 	
-    printf("Erro no %s", tipo);
+    printf("Erro no %s\n", tipo);
     close(socket);
     
     exit(1);
