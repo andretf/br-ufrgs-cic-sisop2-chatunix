@@ -20,13 +20,14 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+
 #define	SOCKET	int
 #define INVALID_SOCKET  ((SOCKET)~0)
-
-
-#define PORTA_CLI 2345 // porta TCP do cliente
-#define PORTA_SRV 2023 // porta TCP do servidor
+#define PORTA_CLI 2001 // porta TCP do cliente
+#define PORTA_SRV 2000 // porta TCP do servidor
 #define STR_IPSERVIDOR "127.0.0.1"
+#define MSG_MAX_SIZE 50
+
 //#define STR_IPSERVIDOR "192.168.0.146"
 
 int main(int argc, char* argv[])
@@ -80,7 +81,7 @@ int main(int argc, char* argv[])
 #endif
 
   // recebe do teclado e envia ao servidor
-  char str[1250];
+  char str[MSG_MAX_SIZE];
   char ch;
   int i;
 
@@ -88,23 +89,18 @@ int main(int argc, char* argv[])
   {
     printf("$ ");
 
-    for(i=0; (i<80) &&  (ch = getchar()) != '\n'; i++ )
+    for(i=0; (i<MSG_MAX_SIZE) &&  (ch = getchar()) != '\n'; i++ )
       str[i] = (char)ch;
     str[i] = '\0';
     
-    //strcpy(str, "mensagem\0");
-
     if ((send(s, (const char *)&str, sizeof(str),0)) < 0)
     {
-      //printf("erro na transmissão - %d\n", WSAGetLastError());
       printf("erro na transmissão\n");
       close(s);
       return 0;
     }
     if(strcmp((const char *)&str, "q")==0)
       break;
-     
-     //usleep(100000);
   }
 
   // fecha socket e termina programa
