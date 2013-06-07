@@ -7,7 +7,10 @@
  * Bruno Fritzen
  * 
  * Programa Cliente
- * 
+ *
+ * Para executar o programa cliente utilizar ./cliente NUM. O parametro NUM sera somado ao valor inicial da porta para comunicacao
+ * para poder utilizar varios clientes na mesma maquina. Por exemplo, rodar ./cliente 1 em um terminal e ./cliente 2 em outro e
+ * assim por diante.
  * */
 
 #include <stdio.h>
@@ -34,7 +37,10 @@ int main(int argc, char* argv[])
 {
   SOCKET s;
   struct sockaddr_in  s_cli, s_serv;
+  int porta = 0;
 
+  if (argc == 2)
+    porta = atoi(argv[1]);
 
   // abre socket TCP
   if ((s = socket(AF_INET, SOCK_STREAM, 0))==INVALID_SOCKET)
@@ -46,7 +52,7 @@ int main(int argc, char* argv[])
   // seta informacoes IP/Porta locais
   s_cli.sin_family = AF_INET;
   s_cli.sin_addr.s_addr = htonl(INADDR_ANY);
-  s_cli.sin_port = htons(PORTA_CLI);
+  s_cli.sin_port = htons(PORTA_CLI + porta);
 
   // associa configuracoes locais com socket
   if ((bind(s, (struct sockaddr *)&s_cli, sizeof(s_cli))) != 0)

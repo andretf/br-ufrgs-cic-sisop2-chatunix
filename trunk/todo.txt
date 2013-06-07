@@ -1,0 +1,3 @@
+- Utilizar mutex nas threads para receber em ordem as mensagens
+- Enviar as mensagens de volta aos clientes em ordem
+- Melhorar o mecanismo de conexao do cliente. Por enquanto eh necessario informar um parametro que eh somado ao valor padrao da porta tcp de comunicacao. O cliente nao deveria fazer isso na hora de executar o programa.

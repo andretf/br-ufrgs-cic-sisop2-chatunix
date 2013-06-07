@@ -8,8 +8,9 @@
  * 
  * Programa Servidor
  * 
+ * Para compilar utilizar "gcc servidor.c -o servidor -lpthread
  * */
- 
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -18,17 +19,19 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #define	SOCKET	int
 #define INVALID_SOCKET  ((SOCKET)~0)
 #define MAX_PACKET 50
 #define PORTA_SRV 2000					// porta TCP do servidor
-#define SALA_CHAT_MAX_USERS 40			// qtd de usuarios maximo na sala de chat
+#define SALA_CHAT_MAX_USERS 2			// qtd de usuarios maximo na sala de chat
 #define MSG_MAX_SIZE 50
 
 enum erros {ABRESOCK, BIND, ACCEPT, LISTEN, RECEIVE}; 
 
 void TrataErro(SOCKET, int);
+void *trataCliente(void* cliSocket);
 
 int main(int argc, char* argv[])
 {
@@ -40,9 +43,8 @@ int main(int argc, char* argv[])
     
     int addrServidorTamanho = sizeof(addrServidor);
     socklen_t addrClienteTamanho = sizeof(addrCliente);
-    
-    char recvbuf[MSG_MAX_SIZE];
-	int result;
+
+    int result;
 
     // Cria o socket na familia AF_INET (Internet) e do tipo TCP (SOCK_STREAM)
     sockServidor = socket(AF_INET, SOCK_STREAM, 0);
@@ -71,35 +73,18 @@ int main(int argc, char* argv[])
     }
 
     // permite conexoes entrantes utilizarem o socket
-    sockCliente = accept(sockServidor, (struct sockaddr *)&addrCliente, &addrClienteTamanho);
-    //extern int accept (int __fd, __SOCKADDR_ARG __addr, socklen_t *__restrict __addr_len);
-    if (sockCliente < 0)
-    {
-        TrataErro(sockServidor, ACCEPT);
+    while(1) {
+	sockCliente = accept(sockServidor, (struct sockaddr *)&addrCliente, &addrClienteTamanho);
+	if (sockCliente < 0) {
+		continue;
+        	//TrataErro(sockServidor, ACCEPT);
+    	} else {
+		printf(">SocketClient Accepted\n");
+		pthread_t pth;
+		pthread_create(&pth, NULL, (void*)&trataCliente, (void*)sockCliente);
+    	}
     }
 
-    // fica esperando chegar mensagem
-    while(1)
-    {
-		result = recv(sockCliente, recvbuf, MSG_MAX_SIZE, 0);
-        if (result < 0)
-        {
-            close(sockCliente);
-            TrataErro(sockServidor, RECEIVE);
-        }
-
-        // mostra na tela
-        if (strcmp((const char *)&recvbuf, "q") == 0)
-        {
-            break;
-        }
-        else
-        {
-            printf("%s\n", recvbuf);
-        }
-    }
-
-    
     // FIM DO PROGRAMA
     printf("Fim da conexao\n");
     
@@ -139,4 +124,32 @@ void TrataErro(SOCKET socket, int tipoerro)
     close(socket);
     
     exit(1);
+}
+
+void *trataCliente(void* cliSocket) {
+
+	int sockCliente = (int) cliSocket;
+	int result;
+	char recvbuf[MSG_MAX_SIZE];
+
+	// fica esperando chegar mensagem
+    	while(1) {
+		result = recv(sockCliente, recvbuf, MSG_MAX_SIZE, 0);
+		if (result < 0) {
+            		close(sockCliente);
+			printf("Deu erro RECEIVE. SocketClient (%i) fechado. result = %i\n", sockCliente, result);
+            		//TrataErro(sockServidor, RECEIVE);
+        	}
+
+        	// mostra na tela
+        	if (strcmp((const char *)&recvbuf, "q") == 0) {
+            		break;
+        	} else {
+            		printf("%s\n", recvbuf);
+        	}
+    	}
+
+	//the function must return something - NULL will do
+	return NULL;
+
 }
