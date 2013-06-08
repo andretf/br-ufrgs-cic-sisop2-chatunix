@@ -72,6 +72,8 @@ int main(int argc, char* argv[])
         TrataErro(sockServidor, LISTEN);
     }
 
+    pthread_mutex_t lock;
+
     // permite conexoes entrantes utilizarem o socket
     while(1) {
 	sockCliente = accept(sockServidor, (struct sockaddr *)&addrCliente, &addrClienteTamanho);
@@ -79,7 +81,6 @@ int main(int argc, char* argv[])
 		continue;
         	//TrataErro(sockServidor, ACCEPT);
     	} else {
-		printf(">SocketClient Accepted\n");
 		pthread_t pth;
 		pthread_create(&pth, NULL, (void*)&trataCliente, (void*)sockCliente);
     	}
@@ -131,9 +132,10 @@ void *trataCliente(void* cliSocket) {
 	int sockCliente = (int) cliSocket;
 	int result;
 	char recvbuf[MSG_MAX_SIZE];
-
+	printf(">SocketClient Accepted (%i)\n", sockCliente);
 	// fica esperando chegar mensagem
     	while(1) {
+		//LOCK ??
 		result = recv(sockCliente, recvbuf, MSG_MAX_SIZE, 0);
 		if (result < 0) {
             		close(sockCliente);
@@ -146,9 +148,11 @@ void *trataCliente(void* cliSocket) {
             		break;
         	} else {
             		printf("%s\n", recvbuf);
+			send(sockCliente, (const char *)&recvbuf, sizeof(recvbuf),0);
         	}
+		//UNLOCK ??
     	}
-
+	printf(">SocketClient Closed (%i)\n", sockCliente);
 	//the function must return something - NULL will do
 	return NULL;
 

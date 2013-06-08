@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
-
+#include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -32,6 +32,8 @@
 #define MSG_MAX_SIZE 50
 
 //#define STR_IPSERVIDOR "192.168.0.146"
+
+void *trataMsgRecebida(void* servSocket);
 
 int main(int argc, char* argv[])
 {
@@ -91,6 +93,9 @@ int main(int argc, char* argv[])
   char ch;
   int i;
 
+  pthread_t pth;
+  pthread_create(&pth, NULL, (void*)&trataMsgRecebida, (void*)s);  
+
   while(1)
   {
     printf("$ ");
@@ -105,12 +110,37 @@ int main(int argc, char* argv[])
       close(s);
       return 0;
     }
-    if(strcmp((const char *)&str, "q")==0)
+    if(strcmp((const char *)&str, "q")==0) {
       break;
+    }
   }
 
   // fecha socket e termina programa
   printf("Fim da conexao\n");
   close(s);
   return 0;
+}
+
+void *trataMsgRecebida(void* servSocket) {
+
+	int sockServidor = (int) servSocket;
+	int result;
+	char recvbuf[MSG_MAX_SIZE];
+	// fica esperando chegar mensagem
+    	while(1) {
+		result = recv(sockServidor, recvbuf, MSG_MAX_SIZE, 0);
+		if (result < 0) {
+            		close(sockServidor);
+			printf("Deu erro RECEIVE. SocketServidor (%i) fechado. result = %i\n", sockServidor, result);
+        	}
+
+        	// mostra na tela
+        	if (strcmp((const char *)&recvbuf, "q") == 0) {
+            		break;
+        	} else {
+            		printf("Mensagem recebida: %s\n", recvbuf);
+        	}
+    	}
+	//the function must return something - NULL will do
+	return NULL;
 }
