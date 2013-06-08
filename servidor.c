@@ -23,8 +23,7 @@
 
 #define	SOCKET	int
 #define INVALID_SOCKET  ((SOCKET)~0)
-#define MAX_PACKET 50
-#define PORTA_SRV 2000					// porta TCP do servidor
+#define PORTA_SRV 2100					// porta TCP do servidor
 #define SALA_CHAT_MAX_USERS 2			// qtd de usuarios maximo na sala de chat
 #define MSG_MAX_SIZE 50
 
@@ -33,19 +32,30 @@ enum erros {ABRESOCK, BIND, ACCEPT, LISTEN, RECEIVE};
 void TrataErro(SOCKET, int);
 void *trataCliente(void* cliSocket);
 
+
+// Listas finitas de Clientes, limitadas pelo tam da sala
+int sockClientes[SALA_CHAT_MAX_USERS];
+struct sockaddr_in addrCliente[SALA_CHAT_MAX_USERS];
+socklen_t addrClienteTamanho[SALA_CHAT_MAX_USERS];
+int currSock = 0;
+int i;
+
+pthread_mutex_t lock;
+
 int main(int argc, char* argv[])
 {
-    int sockCliente;
+    //int sockCliente;
     int sockServidor = 0;
 
     struct sockaddr_in addrServidor;
-    struct sockaddr_in addrCliente;
-    
-    int addrServidorTamanho = sizeof(addrServidor);
-    socklen_t addrClienteTamanho = sizeof(addrCliente);
 
     int result;
-
+    
+    if (pthread_mutex_init(&lock, NULL) != 0)
+    {
+		printf("\ninicializacao do mutex falhou\n");
+		return 1;
+    }
     // Cria o socket na familia AF_INET (Internet) e do tipo TCP (SOCK_STREAM)
     sockServidor = socket(AF_INET, SOCK_STREAM, 0);
     if (sockServidor == INVALID_SOCKET)
@@ -59,7 +69,7 @@ int main(int argc, char* argv[])
     addrServidor.sin_port = htons(PORTA_SRV);
 
     // Associa socket com estrutura addr_serv
-    result = bind(sockServidor, (struct sockaddr *)&addrServidor, addrServidorTamanho);
+    result = bind(sockServidor, (struct sockaddr *)&addrServidor, sizeof(addrServidor));
     if (result != 0)
     {
         TrataErro(sockServidor, BIND);
@@ -72,26 +82,35 @@ int main(int argc, char* argv[])
         TrataErro(sockServidor, LISTEN);
     }
 
-    pthread_mutex_t lock;
+	printf("\nServidor de chat inicializado com sucesso.\n");
 
     // permite conexoes entrantes utilizarem o socket
-    while(1) {
-	sockCliente = accept(sockServidor, (struct sockaddr *)&addrCliente, &addrClienteTamanho);
-	if (sockCliente < 0) {
-		continue;
-        	//TrataErro(sockServidor, ACCEPT);
-    	} else {
-		pthread_t pth;
-		pthread_create(&pth, NULL, (void*)&trataCliente, (void*)sockCliente);
+    while(1)
+    {
+		addrClienteTamanho[currSock] = (socklen_t)sizeof(addrCliente[currSock]);
+		sockClientes[currSock] = accept(sockServidor, (struct sockaddr *)&addrCliente[currSock], &addrClienteTamanho[currSock]);
+		
+		if (sockClientes[currSock] < 0)
+		{
+        	TrataErro(sockServidor, ACCEPT);
     	}
+    	else
+    	{
+			pthread_t pth;
+			pthread_create(&pth, NULL, (void*)&trataCliente, (void*)sockClientes[currSock]);
+			currSock++;
+    	}	
     }
 
     // FIM DO PROGRAMA
     printf("Fim da conexao\n");
     
     close(sockServidor);
-    close(sockCliente);
     
+    for (i = 0; i < currSock; i++){
+		close(sockClientes[i]);
+	}
+    pthread_mutex_destroy(&lock);
     exit(1);
 }
 
@@ -127,33 +146,54 @@ void TrataErro(SOCKET socket, int tipoerro)
     exit(1);
 }
 
-void *trataCliente(void* cliSocket) {
 
+
+
+
+
+
+
+
+void *trataCliente(void* cliSocket) {
 	int sockCliente = (int) cliSocket;
 	int result;
 	char recvbuf[MSG_MAX_SIZE];
-	printf(">SocketClient Accepted (%i)\n", sockCliente);
-	// fica esperando chegar mensagem
-    	while(1) {
-		//LOCK ??
-		result = recv(sockCliente, recvbuf, MSG_MAX_SIZE, 0);
-		if (result < 0) {
-            		close(sockCliente);
-			printf("Deu erro RECEIVE. SocketClient (%i) fechado. result = %i\n", sockCliente, result);
-            		//TrataErro(sockServidor, RECEIVE);
-        	}
+
+		// fica esperando chegar mensagem
+    	while(1)
+    	{
+			result = recv(sockCliente, recvbuf, MSG_MAX_SIZE, 0);
+			if (result < 0)
+			{
+				close(sockCliente);
+				printf("Deu erro RECEIVE. SocketClient (%i) fechado. result = %i\n", sockCliente, result);
+				//TrataErro(sockServidor, RECEIVE);
+			}
 
         	// mostra na tela
-        	if (strcmp((const char *)&recvbuf, "q") == 0) {
-            		break;
-        	} else {
-            		printf("%s\n", recvbuf);
-			send(sockCliente, (const char *)&recvbuf, sizeof(recvbuf),0);
+        	if (strcmp((const char *)&recvbuf, "/sair") == 0) {
+            	close(sockCliente);
         	}
-		//UNLOCK ??
+        	else {
+				pthread_mutex_lock(&lock);
+				int resultBroadcast = 0;
+
+				for (i = 0; i <= currSock; i++) {
+					if (send(sockClientes[i], (const char *)&recvbuf, sizeof(recvbuf), 0) >= 0){
+						resultBroadcast++;
+					}
+				}
+				
+				if (resultBroadcast < 0)
+					printf("ATENCAO : Mensagem nao foi enviada para os clientes: %s\n", recvbuf);
+				else if (resultBroadcast == currSock)
+					printf("Mensagem enviada para todos os clientes: %s\n", recvbuf);
+				else
+					printf("Mensagem enviada para %d dos %d clientes: %s\n", resultBroadcast+1, currSock, recvbuf);
+				pthread_mutex_unlock(&lock);
+        	}
     	}
-	printf(">SocketClient Closed (%i)\n", sockCliente);
+
 	//the function must return something - NULL will do
 	return NULL;
-
 }
