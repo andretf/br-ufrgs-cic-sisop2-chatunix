@@ -27,7 +27,7 @@
 #define	SOCKET	int
 #define INVALID_SOCKET  ((SOCKET)~0)
 #define PORTA_CLI 2001 // porta TCP do cliente
-#define PORTA_SRV 2000 // porta TCP do servidor
+#define PORTA_SRV 2100 // porta TCP do servidor
 #define STR_IPSERVIDOR "127.0.0.1"
 #define MSG_MAX_SIZE 50
 
@@ -35,11 +35,15 @@
 
 void *trataMsgRecebida(void* servSocket);
 
+int i;
+
 int main(int argc, char* argv[])
 {
   SOCKET s;
   struct sockaddr_in  s_cli, s_serv;
+  char ch;
   int porta = 0;
+	char nome[MSG_MAX_SIZE] = "";
 
   if (argc == 2)
     porta = atoi(argv[1]);
@@ -78,46 +82,70 @@ int main(int argc, char* argv[])
     exit(1);
   }
 
-#if 0
-  // envia mensagem de conexao - aprimorar para dar IP e porta
-  if ((send(s, "Conectado\n", 11,0)) == SOCKET_ERROR);
-  {
-    printf("erro na transmissão - %d\n", WSAGetLastError());
-    closesocket(s);
-    return 0;
-  }
-#endif
+	puts("\nBem vindo a sala de chat.");
+	puts("-------------------------");
+	puts("Use os comandos disponiveis no chat:");
+	puts("   \\sair\tSair da sala.");
+	puts("\nDigite seu nome e pressione enter.\nApos isso voce entrara na sala e podera interagir.");
+	printf("Nome: ");
 
+	for (i = 0; (i<MSG_MAX_SIZE) &&  (ch = getchar()) != '\n'; i++ )
+		nome[i] = (char)ch;
+	nome[i] = '\0';
+
+
+	puts("\n---------------------------------");
+
+  // Cara entrou na sala
+  /*char m[1];
+  strcat(m, "> ");
+  strcat(m, nome);
+  strcat(m, " entrou na sala.");
+  send(s, (const char *)&m, sizeof(m), 0);
+*/
+send(s, "toc toc", 7, 0);
   // recebe do teclado e envia ao servidor
-  char str[MSG_MAX_SIZE];
-  char ch;
-  int i;
+  char str[MSG_MAX_SIZE*2+10];
+  char msg[MSG_MAX_SIZE];
 
   pthread_t pth;
   pthread_create(&pth, NULL, (void*)&trataMsgRecebida, (void*)s);  
 
+  strcat(nome, " diz: ");
   while(1)
   {
-    printf("$ ");
+	strcpy(str, "");
+	strcat(str, nome);
 
-    for(i=0; (i<MSG_MAX_SIZE) &&  (ch = getchar()) != '\n'; i++ )
-      str[i] = (char)ch;
-    str[i] = '\0';
+    for(i=0; (i < MSG_MAX_SIZE) &&  (ch = getchar()) != '\n'; i++)
+		msg[i] = (char)ch;
+    msg[i] = '\0';
     
-    if ((send(s, (const char *)&str, sizeof(str),0)) < 0)
+    strcat(str, msg);
+        
+    if ((send(s, (const char *)&str, strlen(str), 0)) < 0)
     {
-      printf("erro na transmissão\n");
+      printf("erro na transmissão da msg\n");
       close(s);
       return 0;
     }
-    if(strcmp((const char *)&str, "q")==0) {
+    
+    if(strcmp((const char *)&str, "/sair") == 0) {
       break;
     }
   }
 
+  // Cara saiu na sala
+  /*char ml[1];
+  strcat(ml, "> ");
+  strcat(ml, nome);
+  strcat(ml, " saiu da sala.");
+  send(s, (const char *)&ml, sizeof(ml), 0);
+*/
   // fecha socket e termina programa
   printf("Fim da conexao\n");
   close(s);
+
   return 0;
 }
 
@@ -128,17 +156,17 @@ void *trataMsgRecebida(void* servSocket) {
 	char recvbuf[MSG_MAX_SIZE];
 	// fica esperando chegar mensagem
     	while(1) {
-		result = recv(sockServidor, recvbuf, MSG_MAX_SIZE, 0);
-		if (result < 0) {
-            		close(sockServidor);
+			result = recv(sockServidor, recvbuf, MSG_MAX_SIZE, 0);
+			if (result < 0) {
+				close(sockServidor);
 			printf("Deu erro RECEIVE. SocketServidor (%i) fechado. result = %i\n", sockServidor, result);
-        	}
+			}
 
         	// mostra na tela
-        	if (strcmp((const char *)&recvbuf, "q") == 0) {
+        	if (strcmp((const char *)&recvbuf, "/sair") == 0) {
             		break;
         	} else {
-            		printf("Mensagem recebida: %s\n", recvbuf);
+            		printf(">> %s\n", recvbuf);
         	}
     	}
 	//the function must return something - NULL will do
