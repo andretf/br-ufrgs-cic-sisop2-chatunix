@@ -25,7 +25,7 @@
 #define INVALID_SOCKET  ((SOCKET)~0)
 #define PORTA_SRV 2100                                  // porta TCP do servidor
 #define SALA_CHAT_MAX_USERS 2                   // qtd de usuarios maximo na sala de chat
-#define MSG_MAX_SIZE 50
+#define MSG_MAX_SIZE 30
 
 enum erros {ABRESOCK, BIND, ACCEPT, LISTEN, RECEIVE};
 
@@ -162,8 +162,6 @@ void *trataCliente(void* cliSocket) {
     // fica esperando chegar mensagem
     while(1)
     {
-        pthread_mutex_lock(&lock);
-        
         strcpy(recvbuf, "");
         result = read(sockCliente, recvbuf, sizeof(recvbuf)-1, 0);
         if (result < 0)
@@ -171,34 +169,36 @@ void *trataCliente(void* cliSocket) {
             close(sockCliente);
             printf("Deu erro RECEIVE. SocketClient (%i) fechado. result = %i\n", sockCliente, result);
             //TrataErro(sockServidor, RECEIVE);
-        }
-        recvbuf[(MSG_MAX_SIZE*2)+9] = '\0';
-        fflush(stdout);
+        } else {
+            pthread_mutex_lock(&lock);
+            recvbuf[(MSG_MAX_SIZE*2)+9] = '\0';
+            fflush(stdout);
         
-        // mostra na tela
-        if (strcmp((const char *)&recvbuf, "/sair") == 0) {
-            close(sockCliente);
-        }
-        else {
-            
-            int resultBroadcast = 0;
-            
-            for (i = 0; i <= currSock; i++) {
-                if (send(sockClientes[i], (const char *)&recvbuf, strlen(recvbuf), 0) >= 0){
-                    resultBroadcast++;
-                }
+            // mostra na tela
+            if (strcmp((const char *)&recvbuf, "/sair") == 0) {
+                close(sockCliente);
             }
+            else {
             
-            if (resultBroadcast < 0)
-                printf("ATENCAO : Mensagem nao foi enviada para os clientes: %s", recvbuf);
-            else if (resultBroadcast == currSock)
-                printf("Mensagem enviada para todos os clientes: %s", recvbuf);
-            else
-                printf("Mensagem enviada para %d dos %d clientes: %s", resultBroadcast+1, currSock, recvbuf);
+                int resultBroadcast = 0;
             
+                for (i = 0; i <= currSock; i++) {
+                    if (send(sockClientes[i], (const char *)&recvbuf, strlen(recvbuf), 0) >= 0){
+                        resultBroadcast++;
+                    }
+                }
+            
+                if (resultBroadcast < 0)
+                    printf("ATENCAO : Mensagem nao foi enviada para os clientes: %s\n", recvbuf);
+                else if (resultBroadcast == currSock)
+                    printf("Mensagem enviada para todos os clientes: %s\n", recvbuf);
+                else
+                    printf("Mensagem enviada para %d dos %d clientes: %s\n", resultBroadcast+1, currSock, recvbuf);
+            
+            }
+            recvbuf[0] = '\0';
+            pthread_mutex_unlock(&lock);
         }
-        recvbuf[0] = '\0';
-        pthread_mutex_unlock(&lock);
     }
     
     //the function must return something - NULL will do
