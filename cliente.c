@@ -28,7 +28,7 @@
 #define INVALID_SOCKET  ((SOCKET)~0)
 #define PORTA_CLI 2001 // porta TCP do cliente
 #define PORTA_SRV 2100 // porta TCP do servidor
-#define STR_IPSERVIDOR "192.168.0.105"
+#define STR_IPSERVIDOR "127.0.0.1"//192.168.0.105"
 #define MSG_MAX_SIZE 30
 
 //#define STR_IPSERVIDOR "192.168.0.146"
