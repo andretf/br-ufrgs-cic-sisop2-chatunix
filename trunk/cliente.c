@@ -28,8 +28,8 @@
 #define INVALID_SOCKET  ((SOCKET)~0)
 #define PORTA_CLI 2001 // porta TCP do cliente
 #define PORTA_SRV 2100 // porta TCP do servidor
-#define STR_IPSERVIDOR "127.0.0.1"
-#define MSG_MAX_SIZE 50
+#define STR_IPSERVIDOR "192.168.0.105"
+#define MSG_MAX_SIZE 30
 
 //#define STR_IPSERVIDOR "192.168.0.146"
 
@@ -44,6 +44,7 @@ int main(int argc, char* argv[])
   char ch;
   int porta = 0;
 	char nome[MSG_MAX_SIZE] = "";
+  char msg[MSG_MAX_SIZE];
 
   if (argc == 2)
     porta = atoi(argv[1]);
@@ -89,7 +90,7 @@ int main(int argc, char* argv[])
 	puts("\nDigite seu nome e pressione enter.\nApos isso voce entrara na sala e podera interagir.");
 	printf("Nome: ");
 
-	for (i = 0; (i<MSG_MAX_SIZE) &&  (ch = getchar()) != '\n'; i++ )
+	for (i = 0; (i<MSG_MAX_SIZE-1) &&  (ch = getchar()) != '\n'; i++ )
 		nome[i] = (char)ch;
 	nome[i] = '\0';
 
@@ -97,51 +98,57 @@ int main(int argc, char* argv[])
 	puts("\n---------------------------------");
 
   // Cara entrou na sala
-  /*char m[1];
-  strcat(m, "> ");
-  strcat(m, nome);
-  strcat(m, " entrou na sala.");
-  send(s, (const char *)&m, sizeof(m), 0);
-*/
-send(s, "toc toc", 7, 0);
+  strcpy(msg, "");
+  strcat(msg, nome);
+  strcat(msg, " entrou na sala.");
+  send(s, (const char *)&msg, strlen(msg), 0);
+	for(i = strlen(msg); i < MSG_MAX_SIZE*2+10-1; i++) msg[i] = ' ';
+	msg[MSG_MAX_SIZE*2+10-1] = '\0';
+
   // recebe do teclado e envia ao servidor
   char str[MSG_MAX_SIZE*2+10];
-  char msg[MSG_MAX_SIZE];
 
   pthread_t pth;
   pthread_create(&pth, NULL, (void*)&trataMsgRecebida, (void*)s);  
 
   strcat(nome, " diz: ");
-  while(1)
-  {
-	strcpy(str, "");
-	strcat(str, nome);
+	while(1)
+	{
+		strcpy(msg, "");
+		strcpy(str, "");
+		strcat(str, nome);
 
-    for(i=0; (i < MSG_MAX_SIZE) &&  (ch = getchar()) != '\n'; i++)
-		msg[i] = (char)ch;
-    msg[i] = '\0';
-    
-    strcat(str, msg);
-        
-    if ((send(s, (const char *)&str, strlen(str), 0)) < 0)
-    {
-      printf("erro na transmissão da msg\n");
-      close(s);
-      return 0;
-    }
-    
-    if(strcmp((const char *)&str, "/sair") == 0) {
-      break;
-    }
-  }
+		for (i = 0; (i < MSG_MAX_SIZE-1) && ((ch = getchar()) != '\n'); i++)
+			msg[i] = (char)ch;
+		
+		strcat(str, msg);
+
+		for(i += strlen(nome) ; i < MSG_MAX_SIZE*2+10-1; i++) str[i] = ' ';
+		str[i] = '\0';
+
+		//printf("##%s %d\n", msg, strlen(msg));
+		//printf("##%s %d\n", str, strlen(str));
+			
+		if ((send(s, (const char *)&str, strlen(str), 0)) < 0)
+		{
+			printf("erro na transmissão da msg\n");
+			close(s);
+			return 0;
+		}
+		
+		if (strcmp((const char *)&msg, "/sair") == 0) {
+			break;
+		}
+	}
 
   // Cara saiu na sala
-  /*char ml[1];
+  char ml[100];
+  strcpy(ml, "");
   strcat(ml, "> ");
   strcat(ml, nome);
   strcat(ml, " saiu da sala.");
-  send(s, (const char *)&ml, sizeof(ml), 0);
-*/
+  send(s, (const char *)&ml, strlen(ml), 0);
+
   // fecha socket e termina programa
   printf("Fim da conexao\n");
   close(s);
@@ -153,20 +160,20 @@ void *trataMsgRecebida(void* servSocket) {
 
 	int sockServidor = (int) servSocket;
 	int result;
-	char recvbuf[MSG_MAX_SIZE];
+	char recvbuf[MSG_MAX_SIZE*2+10];
 	// fica esperando chegar mensagem
     	while(1) {
-			result = recv(sockServidor, recvbuf, MSG_MAX_SIZE, 0);
+			result = recv(sockServidor, recvbuf, MSG_MAX_SIZE*2+10, 0);
 			if (result < 0) {
 				close(sockServidor);
-			printf("Deu erro RECEIVE. SocketServidor (%i) fechado. result = %i\n", sockServidor, result);
+				printf("Deu erro RECEIVE. SocketServidor (%i) fechado. result = %i\n", sockServidor, result);
 			}
 
         	// mostra na tela
         	if (strcmp((const char *)&recvbuf, "/sair") == 0) {
-            		break;
+				break;
         	} else {
-            		printf(">> %s\n", recvbuf);
+				printf(">> %s\n", recvbuf);
         	}
     	}
 	//the function must return something - NULL will do
